@@ -1,0 +1,15 @@
+{
+  "observations": [{
+    "id": "esp32-demo-lodhi-20260909-1200",
+    "measuredAt": "2026-09-09T06:30:00.000Z",
+    "averagingSeconds": 3600,
+    "raw": { "pm25": 72.2, "pm10": 108.1, "temperature": 31.2, "humidity": 64, "pressure": 1004.2, "uv": 0 },
+    "corrected": null,
+    "quality": "valid",
+    "flags": [],
+    "calibrationVersion": "DEMO-CAL-01",
+    "lat": 28.5933,
+    "lng": 77.2205,
+    "uncertaintyM": 150
+  }]
+}
