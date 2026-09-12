@@ -85,6 +85,11 @@ export function Login() {
     [password, setPassword] = useState(''),
     [feedback, setFeedback] = useState(''),
     [busy, setBusy] = useState(false);
+  const [signupStep, setSignupStep] = useState<'email' | 'password' | 'sent'>('email');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const switchMode = (next: typeof mode) => {
+    setMode(next); setSignupStep('email'); setPassword(''); setConfirmPassword(''); setFeedback('');
+  };
   const [factor, setFactor] = useState(''),
     [qr, setQr] = useState(''),
     [code, setCode] = useState('');
@@ -109,6 +114,13 @@ export function Login() {
   };
   const submit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (busy) return;
+    if (mode === 'signup' && signupStep === 'email') {
+      setEmail(email.trim()); setSignupStep('password'); setFeedback(''); return;
+    }
+    if (mode === 'signup' && password !== confirmPassword) {
+      setFeedback('Passwords do not match. Please enter the same password in both fields.'); return;
+    }
     void run(async () => {
       const db = requireSupabase();
       const result =
@@ -127,6 +139,8 @@ export function Login() {
                 });
       if (result.error) throw result.error;
       setPassword('');
+      setConfirmPassword('');
+      if (mode === 'signup') setSignupStep('sent');
       setFeedback(
         mode === 'signup'
           ? 'Check your email to confirm your account. Staff access requires administrator assignment.'
@@ -152,7 +166,7 @@ export function Login() {
         {user
           ? 'Account & access'
           : mode === 'signup'
-            ? 'Create account'
+            ? signupStep === 'sent' ? 'Check your email' : 'Create account'
             : mode === 'reset'
               ? 'Reset password'
               : 'Sign in'}
@@ -273,9 +287,16 @@ export function Login() {
             </section>
           )}
         </>
+      ) : mode === 'signup' && signupStep === 'sent' ? (
+        <section className="account-form">
+          <p>A confirmation email has been requested for <strong>{email}</strong>. Open the link in your inbox to confirm your account, then sign in. Check your spam folder too.</p>
+          <Button onClick={() => switchMode('login')}>Back to sign in</Button>
+        </section>
       ) : (
         <form onSubmit={submit} className="account-form">
-          {mode !== 'password' && (
+          {mode === 'signup' && <p>{signupStep === 'email' ? 'Step 1 of 2 · Enter your email' : 'Step 2 of 2 · Create your password'}</p>}
+          {mode === 'signup' && signupStep === 'password' && <p>Creating an account for <strong>{email}</strong>. <Button type="button" variant="ghost" disabled={busy} onClick={() => { setSignupStep('email'); setPassword(''); setConfirmPassword(''); setFeedback(''); }}>Change email</Button></p>}
+          {mode !== 'password' && (mode !== 'signup' || signupStep === 'email') && (
             <label htmlFor="auth-email">
               Email
               <Input
@@ -288,7 +309,7 @@ export function Login() {
               />
             </label>
           )}
-          {mode !== 'reset' && (
+          {mode !== 'reset' && (mode !== 'signup' || signupStep === 'password') && (
             <label htmlFor="auth-password">
               Password
               <Input
@@ -304,11 +325,17 @@ export function Login() {
               />
             </label>
           )}
+          {mode === 'signup' && signupStep === 'password' && (
+            <>
+              <p className="micro">Use at least 12 characters.</p>
+              <label htmlFor="auth-confirm-password">Confirm password<Input id="auth-confirm-password" type="password" autoComplete="new-password" required minLength={12} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></label>
+            </>
+          )}
           <Button type="submit" disabled={busy}>
             {busy
               ? 'Please wait…'
               : mode === 'signup'
-                ? 'Create account'
+                ? signupStep === 'email' ? 'Next' : 'Create account'
                 : mode === 'reset'
                   ? 'Request reset email'
                   : mode === 'password'
@@ -319,14 +346,16 @@ export function Login() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+              disabled={busy}
+              onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
             >
               {mode === 'login' ? 'Create account' : 'Back to sign in'}
             </Button>
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setMode('reset')}
+              disabled={busy}
+              onClick={() => switchMode('reset')}
             >
               Forgot password
             </Button>

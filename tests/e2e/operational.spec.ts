@@ -437,3 +437,30 @@ for (const staffRole of ['operator', 'admin']) {
     }
   });
 }
+
+test('signup collects email then matching passwords and requests confirmation', async ({ page }) => {
+  const requests: Record<string, unknown>[] = [];
+  await page.route('**/auth/v1/signup**', async (route) => {
+    requests.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { id: 'signup-test', email: 'signup@example.test', identities: [] }, session: null }) });
+  });
+  await page.goto('/login');
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0);
+  await page.getByLabel('Email', { exact: true }).fill('signup@example.test');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  expect(requests).toHaveLength(0);
+  await page.getByLabel('Password', { exact: true }).fill('Test-password-1234');
+  await page.getByLabel('Confirm password', { exact: true }).fill('Different-password-1234');
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await expect(page.locator('.form-feedback')).toContainText('Passwords do not match');
+  expect(requests).toHaveLength(0);
+  await page.getByLabel('Confirm password', { exact: true }).fill('Test-password-1234');
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+  expect(requests).toHaveLength(1);
+  expect(requests[0].email).toBe('signup@example.test');
+  await page.getByRole('button', { name: 'Back to sign in' }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Password', { exact: true })).toHaveValue('');
+});
