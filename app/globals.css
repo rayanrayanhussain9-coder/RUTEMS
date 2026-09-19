@@ -2778,3 +2778,23 @@ dd {
 }
 .account-form .choice [data-slot='select-trigger'] { width: 100%; }
 #add-observation-area { scroll-margin-top: 100px; }
+
+/* Guided authentication */
+.auth-page { max-width: 680px; padding-top: 56px; padding-bottom: 72px; }
+.auth-card { background: #fff; border: 1px solid #dce5dc; border-radius: 24px; padding: clamp(24px, 5vw, 48px); box-shadow: 0 16px 60px #214e3610; }
+.auth-card h1 { font-size: clamp(32px, 5vw, 44px); line-height: 1.12; margin: 16px 0; letter-spacing: -.035em; }
+.auth-intro { color: #647065; line-height: 1.6; }
+.auth-steps { display: flex; list-style: none; padding: 0; gap: 18px; margin: 30px 0; }
+.auth-steps li { flex: 1; display: flex; gap: 8px; align-items: center; color: #738077; font-size: 13px; border-bottom: 2px solid #e9ede8; padding-bottom: 14px; }
+.auth-steps li.active { color: #235542; border-color: #235542; }
+.auth-steps span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #edf2eb; font-size: 12px; flex-shrink: 0; }
+.auth-steps [aria-current] span { background: #235542; color: white; }
+.auth-card .account-form { max-width: none; margin: 24px 0 0; }
+.auth-card .account-form input { height: 50px; border-radius: 10px; }
+.auth-card .account-form > button[type=submit] { min-height: 48px; border-radius: 10px; }
+.auth-email-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; background: #f3f6f0; padding: 8px 12px; border-radius: 10px; font-size: 14px; overflow-wrap: anywhere; }
+.auth-show-password { justify-self: start; margin-top: -12px; }
+.auth-card .email-code { font-size: 24px; letter-spacing: .25em; text-align: center; }
+.auth-card .form-feedback { display: block; margin-top: 20px; line-height: 1.6; }
+.auth-footer-note { color: #738077; font-size: 12px; text-align: center; margin-top: 28px; padding-top: 22px; border-top: 1px solid #edf0e9; }
+@media(max-width: 600px) { .auth-page { padding-top: 28px; } .auth-steps { gap: 10px; } .auth-card .actions { gap: 4px; flex-wrap: wrap; } }

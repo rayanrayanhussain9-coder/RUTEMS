@@ -45,7 +45,7 @@ test('operator routes require sign-in and login forms are accessible', async ({
   await expect(
     page.getByRole('textbox', { name: 'Email', exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0);
   await page
     .getByRole('button', { name: 'Create account', exact: true })
     .click();
@@ -124,6 +124,7 @@ test('sign-in submits and reports authentication failures', async ({
   await page
     .getByLabel('Email', { exact: true })
     .fill('verification@example.test');
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page
     .getByLabel('Password', { exact: true })
     .fill('not-a-real-password');
@@ -438,29 +439,159 @@ for (const staffRole of ['operator', 'admin']) {
   });
 }
 
-test('signup collects email then matching passwords and requests confirmation', async ({ page }) => {
+test('signup collects email then matching passwords and requests confirmation', async ({
+  page,
+}) => {
   const requests: Record<string, unknown>[] = [];
   await page.route('**/auth/v1/signup**', async (route) => {
     requests.push(route.request().postDataJSON());
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { id: 'signup-test', email: 'signup@example.test', identities: [] }, session: null }) });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        user: {
+          id: 'signup-test',
+          email: 'signup@example.test',
+          identities: [],
+        },
+        session: null,
+      }),
+    });
   });
   await page.goto('/login');
-  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Create account', exact: true })
+    .click();
   await expect(page.getByLabel('Password', { exact: true })).toHaveCount(0);
   await page.getByLabel('Email', { exact: true }).fill('signup@example.test');
-  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   expect(requests).toHaveLength(0);
   await page.getByLabel('Password', { exact: true }).fill('Test-password-1234');
-  await page.getByLabel('Confirm password', { exact: true }).fill('Different-password-1234');
-  await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(page.locator('.form-feedback')).toContainText('Passwords do not match');
+  await page
+    .getByLabel('Confirm password', { exact: true })
+    .fill('Different-password-1234');
+  await page
+    .getByRole('button', { name: 'Send verification code', exact: true })
+    .click();
+  await expect(page.locator('.form-feedback')).toContainText(
+    'Passwords do not match',
+  );
   expect(requests).toHaveLength(0);
-  await page.getByLabel('Confirm password', { exact: true }).fill('Test-password-1234');
-  await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
+  await page
+    .getByLabel('Confirm password', { exact: true })
+    .fill('Test-password-1234');
+  await page
+    .getByRole('button', { name: 'Send verification code', exact: true })
+    .click();
+  await expect(
+    page.getByRole('heading', { name: 'Check your email' }),
+  ).toBeVisible();
   expect(requests).toHaveLength(1);
   expect(requests[0].email).toBe('signup@example.test');
+  await expect(
+    page.getByRole('button', { name: /Resend code in/ }),
+  ).toBeDisabled();
+  await page.route('**/auth/v1/verify', async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      email: 'signup@example.test',
+      token: '123456',
+      type: 'email',
+    });
+    await route.fulfill({
+      status: 403,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 'otp_expired',
+        msg: 'Token has expired or is invalid',
+      }),
+    });
+  });
+  await page.getByLabel('Verification code').fill('123456');
+  await page.getByRole('button', { name: 'Verify and continue' }).click();
+  await expect(page.locator('.form-feedback')).toContainText(
+    'invalid or has expired',
+  );
   await page.getByRole('button', { name: 'Back to sign in' }).click();
-  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Sign in', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByLabel('Password', { exact: true })).toHaveValue('');
+});
+
+test('verified signup opens a public account without staff permissions', async ({
+  page,
+}) => {
+  const user = {
+    id: '00000000-0000-4000-8000-000000000077',
+    email: 'signup@example.test',
+    aud: 'authenticated',
+    role: 'authenticated',
+    app_metadata: { provider: 'email' },
+    user_metadata: {},
+    created_at: new Date().toISOString(),
+    factors: [],
+  };
+  const token =
+    Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString(
+      'base64url',
+    ) +
+    '.' +
+    Buffer.from(
+      JSON.stringify({
+        sub: user.id,
+        role: 'authenticated',
+        aal: 'aal1',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
+    ).toString('base64url') +
+    '.test-signature';
+  await page.route(
+    'https://vgenmqsxdqtepiugcznf.supabase.co/**',
+    async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      const body = path.endsWith('/signup')
+        ? { user, session: null }
+        : path.endsWith('/verify')
+          ? {
+              access_token: token,
+              refresh_token: 'test-only',
+              expires_in: 3600,
+              token_type: 'bearer',
+              user,
+            }
+          : path.endsWith('/user')
+            ? user
+            : path.includes('staff_members')
+              ? null
+              : {};
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(body),
+      });
+    },
+  );
+  await page.goto('/login');
+  await page
+    .getByRole('button', { name: 'Create account', exact: true })
+    .click();
+  await page.getByLabel('Email', { exact: true }).fill(user.email);
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await page.getByLabel('Password', { exact: true }).fill('Test-password-1234');
+  await page
+    .getByLabel('Confirm password', { exact: true })
+    .fill('Test-password-1234');
+  await page.getByRole('button', { name: 'Send verification code' }).click();
+  await page.getByLabel('Verification code').fill('123456');
+  await page.getByRole('button', { name: 'Verify and continue' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Account & access' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Public account — no staff permissions', { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Open Operator Workspace' }),
+  ).toHaveCount(0);
 });
