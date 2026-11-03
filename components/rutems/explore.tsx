@@ -390,7 +390,7 @@ export function Explore() {
             Explore what was measured. Keep the gaps in view.
           </p>
         </div>
-        <Button onClick={() => setConditions(true)}>View Delhi sample layers</Button>
+        <Button onClick={() => setConditions(true)}>View sample atlas</Button>
         <SavedLink />
       </div>
       <div className="app-wrap">
