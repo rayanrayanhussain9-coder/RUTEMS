@@ -52,6 +52,8 @@ export default function ObservationMap({
         zoomControl: !preview,
         attributionControl: true,
       }).setView([28.61, 77.23], 13);
+      const sizeDots=()=>element.current?.style.setProperty('--dot-size',Math.max(6,Math.min(16,m.getZoom()+2))+'px');
+      sizeDots();m.on('zoomend',sizeDots);
       map.current = m;
       layer.current = L.layerGroup().addTo(m);
       observer = new ResizeObserver(() => m.invalidateSize());
@@ -111,16 +113,10 @@ export default function ObservationMap({
         const point = overlay?.points[l.id];
         const reading = point?.value ?? value;
         const unit = overlay?.unit ?? metrics[metric].unit;
-        if(point) L.circleMarker([l.lat,l.lng],{radius:32,color:point.color,weight:2,fillOpacity:.16,fillColor:point.color,interactive:false}).addTo(layer.current!);
-        const icon = L.divIcon({
-          className: 'observation-pin',
-          html: `<span style="${point ? "background:"+point.color+";color:white" : ""}" class="pin-body ${style} ${l.source} ${l.id === selected ? 'selected' : ''}"><span>${l.source === 'mobile' ? '◇' : '●'}</span> ${reading === null ? '—' : reading.toFixed(point ? 0 : 1)}</span>`,
-          iconSize: [76, 36],
-          iconAnchor: [38, 18],
-        });
+        const icon=L.divIcon({className:'observation-pin dot-target',html:`<span class="station-dot ${style} ${l.id===selected?'chosen':''}" style="${point?'background:'+point.color:''}"></span>`,iconSize:[24,24],iconAnchor:[12,12]});
         const marker = L.marker([l.lat, l.lng], {
           icon,
-          title: `${l.name}: ${reading ?? 'unavailable'} ${unit}, ${point?.label ?? state}`,
+          title: l.name,
           alt: l.name,
           keyboard: true,
         }).addTo(layer.current!);
@@ -138,14 +134,6 @@ export default function ObservationMap({
           }
         });
         marker.on('click', () => callback.current(l.id));
-        if (l.id === selected)
-          L.circle([l.lat, l.lng], {
-            radius: l.uncertaintyM,
-            color: '#285840',
-            weight: 1,
-            fillOpacity: 0.08,
-            dashArray: '4 5',
-          }).addTo(layer.current!);
       });
     });
   }, [ready, locations, data, metric, selected, overlay]);
@@ -202,8 +190,7 @@ export default function ObservationMap({
           <span className="muted">{overlay?.unit ?? metrics[metric].unit}</span>
         </strong>
         <div>
-          <span>● Fixed area</span>
-          <span>◇ Mobile area</span>
+          <span>● Station location</span>
         </div>
         <p>Blank coverage = Insufficient data</p>
       </div>

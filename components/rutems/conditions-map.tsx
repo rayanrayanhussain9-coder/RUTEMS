@@ -53,51 +53,34 @@ const originals = [
     humidity: 62,
   },
 ];
-const groups = [
-  {
-    region: 'Delhi',
-    context: 'urban',
-    lat: 28.61,
-    lng: 77.21,
-    places: ['Market', 'Garden', 'Plaza', 'Canal', 'Arcade'],
-    stops: ['North', 'South', 'East', 'West', 'Central'],
-  },
-  {
-    region: 'Chandigarh',
-    context: 'urban',
-    lat: 30.74,
-    lng: 76.79,
-    places: ['Promenade', 'Avenue', 'Park', 'Square', 'Courtyard'],
-    stops: ['North', 'South', 'East', 'West', 'Central'],
-  },
-  {
-    region: 'Mussoorie',
-    context: 'trail',
-    lat: 30.46,
-    lng: 78.08,
-    places: ['Cedar', 'Juniper', 'Pine', 'Oak', 'Fern'],
-    stops: ['Ridge', 'Lookout', 'Bend', 'Pass', 'Clearing'],
-  },
-  {
-    region: 'Manali',
-    context: 'trail',
-    lat: 32.24,
-    lng: 77.18,
-    places: ['Birch', 'Willow', 'Spruce', 'Maple', 'Alder'],
-    stops: ['Ridge', 'Lookout', 'Bend', 'Pass', 'Clearing'],
-  },
+// Illustrative station positions near regional anchors, not installed devices.
+const anchors = [
+ ['Delhi',28.61,77.21,'urban'],['Chandigarh',30.74,76.79,'urban'],
+ ['Mussoorie',30.46,78.08,'trail'],['Manali',32.24,77.18,'trail'],
+ ['Ahmedabad',23.03,72.58,'urban'],['Amritsar',31.63,74.87,'urban'],
+ ['Ajmer',26.45,74.64,'urban'],['Mumbai',19.08,72.88,'urban'],
+ ['Bengaluru',12.97,77.59,'urban'],['Chennai',13.08,80.27,'urban'],
+ ['Hyderabad',17.39,78.49,'urban'],['Bhubaneswar',20.30,85.82,'urban'],
+ ['Kolkata',22.57,88.36,'urban'],['Patna',25.59,85.14,'urban'],
+ ['Bhopal',23.26,77.41,'urban'],['Guwahati',26.14,91.74,'urban'],
+ ['Aizawl',23.73,92.72,'trail'],['Shillong',25.58,91.89,'trail'],
+ ['Gangtok',27.33,88.61,'trail'],['Leh',34.15,77.58,'trail'],
+ ['Srinagar',34.08,74.80,'trail'],['Munnar',10.09,77.06,'trail'],
+ ['Ooty',11.41,76.70,'trail'],['Mahabaleshwar',17.93,73.66,'trail'],
+ ['Ranchi',23.34,85.31,'trail'],
 ] as const;
+const groups=anchors.map(([region,lat,lng,context])=>({region,lat,lng,context}));
 const sites = groups.flatMap((g, k) =>
-  Array.from({ length: 25 }, (_, j) => {
-    const n = k * 25 + j;
+  Array.from({ length: 4 }, (_, j) => {
+    const n = k * 4 + j;
     const raw =
       k === 0 && j < 3
         ? originals[j]
         : {
             id: 'atlas-' + n,
-            name: g.places[j % 5] + ' ' + g.stops[Math.floor(j / 5)],
-            lat: g.lat + (Math.floor(j / 5) - 2) * 0.016,
-            lng: g.lng + ((j % 5) - 2) * 0.022,
+            name: g.region + ' ' + (g.context==='urban'?['Garden','Market','Square','Avenue']:['Ridge','Lookout','Bend','Pass'])[j],
+            lat: g.lat + (j < 2 ? -1 : 1) * 0.024,
+            lng: g.lng + (j % 2 ? -1 : 1) * 0.025,
             pm25: 9 + ((n * 17) % 138),
             pm10: 32 + ((n * 17) % 138) + (n % 35),
             uv: (n * 5) % 13,
@@ -252,9 +235,9 @@ export function ConditionsMap({ onExit }: { onExit: () => void }) {
     () =>
       sites.filter(
         (s) =>
-          (s.name + ' ' + s.region + ' ' + s.context)
+          s.name
             .toLowerCase()
-            .includes(q.trim().toLowerCase()) &&
+            .startsWith(q.trim().toLowerCase()) &&
           (context === 'all' || context === s.context) &&
           (region === 'all' || region === s.region) &&
           (source === 'all' || source === s.source) &&
@@ -307,7 +290,7 @@ export function ConditionsMap({ onExit }: { onExit: () => void }) {
           <Input
             type="search"
             aria-label="Search locations"
-            placeholder="Search by location or region"
+            placeholder="Type the start of a place name"
             value={q}
             onChange={(e) => search(e.target.value)}
           />
@@ -323,6 +306,7 @@ export function ConditionsMap({ onExit }: { onExit: () => void }) {
           ]}
         />
       </div>
+      {q.trim() && filtered.length>0 && <div className="layer-picker" aria-label="Matching places">{filtered.slice(0,8).map(s=><button key={s.id} onClick={()=>{search(s.name);select(s.id)}}>{s.name}</button>)}</div>}
       <div className="filters">
         {[
           {
@@ -471,7 +455,7 @@ export function ConditionsMap({ onExit }: { onExit: () => void }) {
         ) : (
           'Colors compare the 100 sample stations; they are not safety ratings.'
         )}{' '}
-        Halos mark station locations, not the extent of affected areas.
+        Dots mark station locations, not the extent of affected areas.
       </p>
     </section>
   );
