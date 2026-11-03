@@ -53,6 +53,7 @@ import {
   EmptyState,
 } from './shared';
 import ObservationMap from './map';
+import { ClassroomMap } from './classroom-map';
 import { HistoryChart } from './history';
 const icons = {
   pm25: Wind,
@@ -322,6 +323,7 @@ export function LocationDetails({
   );
 }
 export function Explore() {
+  const [classroom, setClassroom] = useState(false);
   const { data } = useApp();
   const [query, setQuery] = useState(''),
     [region, setRegion] = useState('all'),
@@ -377,6 +379,7 @@ export function Explore() {
     setSelected(id);
     if (isMobile) setSheet(true);
   };
+  if (classroom) return <ClassroomMap onExit={() => setClassroom(false)} />;
   return (
     <>
       <div className="app-heading wrap">
@@ -387,6 +390,7 @@ export function Explore() {
             Explore what was measured. Keep the gaps in view.
           </p>
         </div>
+        <Button onClick={() => setClassroom(true)}>Show classroom map</Button>
         <SavedLink />
       </div>
       <div className="app-wrap">
