@@ -21,6 +21,7 @@ export default function ObservationMap({
   onSelect,
   region = 'Delhi',
   preview = false,
+  overlay,
 }: {
   locations: Location[];
   data: Snapshot;
@@ -29,6 +30,7 @@ export default function ObservationMap({
   onSelect: (id: string) => void;
   region?: string;
   preview?: boolean;
+  overlay?: {name:string; unit:string; points:Record<string,{value:number; color:string; label:string}>};
 }) {
   const element = useRef<HTMLDivElement>(null),
     map = useRef<LeafletMap | null>(null),
@@ -106,15 +108,19 @@ export default function ObservationMap({
               : state === 'Unavailable'
                 ? 'unavailable'
                 : 'stale';
+        const point = overlay?.points[l.id];
+        const reading = point?.value ?? value;
+        const unit = overlay?.unit ?? metrics[metric].unit;
+        if(point) L.circleMarker([l.lat,l.lng],{radius:32,color:point.color,weight:2,fillOpacity:.16,fillColor:point.color,interactive:false}).addTo(layer.current!);
         const icon = L.divIcon({
           className: 'observation-pin',
-          html: `<span class="pin-body ${style} ${l.source} ${l.id === selected ? 'selected' : ''}"><span>${l.source === 'mobile' ? '◇' : '●'}</span> ${value === null ? '—' : value.toFixed(1)}</span>`,
+          html: `<span style="${point ? "background:"+point.color+";color:white" : ""}" class="pin-body ${style} ${l.source} ${l.id === selected ? 'selected' : ''}"><span>${l.source === 'mobile' ? '◇' : '●'}</span> ${reading === null ? '—' : reading.toFixed(point ? 0 : 1)}</span>`,
           iconSize: [76, 36],
           iconAnchor: [38, 18],
         });
         const marker = L.marker([l.lat, l.lng], {
           icon,
-          title: `${l.name}: ${value ?? 'unavailable'} ${metrics[metric].unit}, ${state}`,
+          title: `${l.name}: ${reading ?? 'unavailable'} ${unit}, ${point?.label ?? state}`,
           alt: l.name,
           keyboard: true,
         }).addTo(layer.current!);
@@ -122,7 +128,7 @@ export default function ObservationMap({
           .getElement()
           ?.setAttribute(
             'aria-label',
-            `${l.name}: ${value ?? 'unavailable'} ${metrics[metric].unit}, ${state}`,
+            `${l.name}: ${reading ?? 'unavailable'} ${unit}, ${point?.label ?? state}`,
           );
         marker.getElement()?.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -142,7 +148,7 @@ export default function ObservationMap({
           }).addTo(layer.current!);
       });
     });
-  }, [ready, locations, data, metric, selected]);
+  }, [ready, locations, data, metric, selected, overlay]);
   const recenter = useCallback(() => {
     if (!map.current) return;
     if (locations.length)
@@ -192,8 +198,8 @@ export default function ObservationMap({
       )}
       <div className="map-legend">
         <strong>
-          {metrics[metric].name}{' '}
-          <span className="muted">{metrics[metric].unit}</span>
+          {overlay?.name ?? metrics[metric].name}{' '}
+          <span className="muted">{overlay?.unit ?? metrics[metric].unit}</span>
         </strong>
         <div>
           <span>● Fixed area</span>
